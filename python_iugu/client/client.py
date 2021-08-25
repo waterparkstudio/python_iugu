@@ -1,5 +1,6 @@
-import aiohttp
-import asyncio
+from http.client import HTTPSConnection, CannotSendRequest, BadStatusLine
+from json import load as json_load
+from . import errors, config_api
 
 from python_iugu.expcetion import RequestsError
 from python_iugu.client.iclient import IClient
@@ -13,6 +14,7 @@ T = TypeVar('T')
 
 class _Client(IClient):
     _URL = "https://api.iugu.com/v1"
+    __conn = HTTPSConnection(config_api.API_HOSTNAME)
 
     def __init__(self, token: str) -> None:
         self._token = token
@@ -39,42 +41,74 @@ class _Client(IClient):
             "Accept": "application/json"
         }
 
-    async def __request(self, session: aiohttp.ClientSession,
-                        method: str, suffix: str, obj: Generic[T]) -> Dict[str, Any]:
-        url = "%s/%s" % (self._URL, suffix)
+    def __validation(self, response, msg=None):
+        """
+        Validates if data returned by API contains errors json. The API returns
+        by default a json with errors as field {errors: XXX}
 
-        async with session.request(method, url, json=to_dict(obj)) as response:
-            r = await response.json()
+            => http://iugu.com/referencias/api#erros
+        """
+        import codecs
 
-            if response.status == 200:
-                return r
+        reader = codecs.getreader("utf-8")
 
-            raise RequestsError(r)
+        results = json_load(reader(response))
 
-    async def _request(self, method: str, suffix: str, obj: Generic[T]) -> Dict[str, Any]:
-        async with aiohttp.ClientSession(
-                auth=aiohttp.BasicAuth(self.token, ""), headers=self.headers()) as session:
-            response = await self.__request(session, method, suffix, obj)
-            return response
+        try:
+            err = results['errors']
+        except:
+            err = None
 
-    def _loop(self, method: str, suffix: str, obj: Generic[T] = None) -> Dict[str, Any]:
-        loop = asyncio.new_event_loop()
-        asyncio.set_event_loop(loop)
-        r = loop.run_until_complete(self._request(method, suffix, obj))
-        loop.close()
-        return r
+        if err:
+            raise errors.IuguGeneralException(value=err)
+        else:
+            return results
+
+    def __reload_conn(self):
+        """
+        Wrapper to keep TCP connection ESTABLISHED. Rather the connection go to
+        CLOSE_WAIT and raise errors CannotSendRequest or the server reply with
+        empty and it raise BadStatusLine
+        """
+        self.__conn = HTTPSConnection(config.API_HOSTNAME) # reload
+        self.__conn.timeout = 10
+
+    def __request(self, method: str, suffix: str, obj: Generic[T]) -> Dict[str, Any]:       
+
+        urn = "/v1/" + suffix
+        try:
+            self.__conn.request(method, urn, to_dict(obj), self.headers())
+        except CannotSendRequest:
+            self.__reload_conn()
+            self.__conn.request(method, urn, to_dict(obj), self.headers())
+
+        try:
+            response = self.__conn.getresponse()
+        except (IOError, BadStatusLine):
+            self.__reload_conn()
+            self.__conn.request(method, urn, to_dict(obj), self.headers())
+
+        return response
 
     def get(self, suffix: str, obj: Generic[T] = None) -> Dict[str, Any]:
-        return self._loop('GET', suffix, obj)
+        obj.append(("api_token", self.token))
+        response = self.__request('GET', suffix, obj)
+        return self.__validation(response)
 
     def post(self, suffix: str, obj: Generic[T] = None) -> Dict[str, Any]:
-        return self._loop('POST', suffix, obj)
+        obj.append(("api_token", self.token))
+        response = self.__request('POST', suffix, obj)
+        return self.__validation(response)
 
     def put(self, suffix: str, obj: Generic[T] = None) -> Dict[str, Any]:
-        return self._loop('PUT', suffix, obj)
+        obj.append(("api_token", self.token))
+        response = self.__request('PUT', suffix, obj)
+        return self.__validation(response)
 
-    def delete(self, suffix: str) -> Dict[str, Any]:
-        return self._loop('DELETE', suffix)
+    def delete(self, suffix: str, obj: Generic[T] = None) -> Dict[str, Any]:
+        obj.append(("api_token", self.token))
+        response = self.__request('DELETE', suffix, obj)
+        return self.__validation(response)
 
 
 __default_api__ = None
