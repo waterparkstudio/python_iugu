@@ -1,20 +1,19 @@
-from http.client import HTTPSConnection, CannotSendRequest, BadStatusLine
-from json import load as json_load
-from . import errors, config_api
+from json import dumps
+from . import errors
+import requests
+from requests.auth import HTTPBasicAuth
 
-from python_iugu.expcetion import RequestsError
 from python_iugu.client.iclient import IClient
 from python_iugu.utils import to_dict
 from python_iugu.version import __version__
 from typing import Dict, Any, Generic, TypeVar
 import os
 
-T = TypeVar('T')
+T = TypeVar("T")
 
 
 class _Client(IClient):
     _URL = "https://api.iugu.com/v1"
-    __conn = HTTPSConnection(config_api.API_HOSTNAME)
 
     def __init__(self, token: str) -> None:
         self._token = token
@@ -38,7 +37,7 @@ class _Client(IClient):
         return {
             "User-Agent": "Async Iugu Python Api %s" % __version__,
             "Content-Type": "application/json",
-            "Accept": "application/json"
+            "Accept": "application/json",
         }
 
     def __validation(self, response, msg=None):
@@ -48,14 +47,11 @@ class _Client(IClient):
 
             => http://iugu.com/referencias/api#erros
         """
-        import codecs
 
-        reader = codecs.getreader("utf-8")
-
-        results = json_load(reader(response))
+        results = response
 
         try:
-            err = results['errors']
+            err = results["errors"]
         except:
             err = None
 
@@ -70,44 +66,40 @@ class _Client(IClient):
         CLOSE_WAIT and raise errors CannotSendRequest or the server reply with
         empty and it raise BadStatusLine
         """
-        self.__conn = HTTPSConnection(config.API_HOSTNAME) # reload
+        self.__conn = HTTPSConnection(config.API_HOSTNAME)  # reload
         self.__conn.timeout = 10
 
-    def __request(self, method: str, suffix: str, obj: Generic[T]) -> Dict[str, Any]:       
+    def __request(self, method: str, suffix: str, obj: Generic[T]) -> Dict[str, Any]:
 
-        urn = "/v1/" + suffix
-        try:
-            self.__conn.request(method, urn, to_dict(obj), self.headers())
-        except CannotSendRequest:
-            self.__reload_conn()
-            self.__conn.request(method, urn, to_dict(obj), self.headers())
+        url = f"{self._URL}/{suffix}"
+        headers = self.headers()
 
-        try:
-            response = self.__conn.getresponse()
-        except (IOError, BadStatusLine):
-            self.__reload_conn()
-            self.__conn.request(method, urn, to_dict(obj), self.headers())
+        body = dumps(to_dict(obj))
 
-        return response
+        response = requests.request(
+            method=method,
+            url=url,
+            data=body,
+            headers=headers,
+            auth=HTTPBasicAuth(username=self.token, password=""),
+        )
+
+        return response.json()
 
     def get(self, suffix: str, obj: Generic[T] = None) -> Dict[str, Any]:
-        obj.append(("api_token", self.token))
-        response = self.__request('GET', suffix, obj)
+        response = self.__request("GET", suffix, obj)
         return self.__validation(response)
 
     def post(self, suffix: str, obj: Generic[T] = None) -> Dict[str, Any]:
-        obj.append(("api_token", self.token))
-        response = self.__request('POST', suffix, obj)
+        response = self.__request("POST", suffix, obj)
         return self.__validation(response)
 
     def put(self, suffix: str, obj: Generic[T] = None) -> Dict[str, Any]:
-        obj.append(("api_token", self.token))
-        response = self.__request('PUT', suffix, obj)
+        response = self.__request("PUT", suffix, obj)
         return self.__validation(response)
 
     def delete(self, suffix: str, obj: Generic[T] = None) -> Dict[str, Any]:
-        obj.append(("api_token", self.token))
-        response = self.__request('DELETE', suffix, obj)
+        response = self.__request("DELETE", suffix, obj)
         return self.__validation(response)
 
 
