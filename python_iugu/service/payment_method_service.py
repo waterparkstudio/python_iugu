@@ -6,7 +6,7 @@ from python_iugu.model.payment_method_model import PaymentMethodModel
 from python_iugu.request.payment_method_request import PaymentMethodRequest
 
 
-class CustomerService(BaseService):
+class PaymentMethodService(BaseService):
     _PREFIX = "payment_methods"
     _SUFFIX = "payment_methods"
 
