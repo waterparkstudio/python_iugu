@@ -2,7 +2,8 @@ from python_iugu.service import (
     InvoiceService,
     SubscriptionService,
     CustomerService,
-    PlanService
+    PlanService,
+    PaymentMethodService
 )
 
 from python_iugu.request import (
