@@ -2,3 +2,4 @@ from python_iugu.service.invoice_service import InvoiceService
 from python_iugu.service.customer_service import CustomerService
 from python_iugu.service.subscription_service import SubscriptionService
 from python_iugu.service.plan_service import PlanService
+from python_iugu.service.payment_method_service import PaymentMethodService
