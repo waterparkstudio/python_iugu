@@ -13,6 +13,6 @@ class Data:
 class PaymentMethodModel:
     id: str
     description: str
-    price_cents: int
+    item_type: str
     data: Data
 
