@@ -7,14 +7,14 @@ from python_iugu.request.payment_method_request import PaymentMethodRequest
 
 
 class PaymentMethodService(BaseService):
-    _PREFIX = "payment_methods"
+    _PREFIX = "v1"
     _SUFFIX = "payment_methods"
 
     def create(self, payment_method: PaymentMethodRequest) -> PaymentMethodModel:
         if payment_method.customer_id is None:
             raise RequiredParameter('Customer ID not informed')
 
-        url = f"{self._SUFFIX}/{payment_method.customer_id}/{self._SUFFIX}"
+        url = f"{self._PREFIX}/{payment_method.customer_id}/{self._SUFFIX}"
 
         response = self.client.post(url, payment_method)
         return self._deserialize(PaymentMethodModel, response)
