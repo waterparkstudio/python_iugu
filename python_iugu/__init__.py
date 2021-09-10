@@ -11,7 +11,8 @@ from python_iugu.request import (
     invoice_request,
     subscription_request,
     utils_request,
-    plan_request
+    plan_request,
+    payment_method_request
 )
 from python_iugu.version import __version__
 from python_iugu.client import config
