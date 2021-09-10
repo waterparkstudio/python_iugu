@@ -7,7 +7,7 @@ from python_iugu.request.payment_method_request import PaymentMethodRequest
 
 
 class PaymentMethodService(BaseService):
-    _PREFIX = "v1"
+    _PREFIX = "customers"
     _SUFFIX = "payment_methods"
 
     def create(self, payment_method: PaymentMethodRequest) -> PaymentMethodModel:
